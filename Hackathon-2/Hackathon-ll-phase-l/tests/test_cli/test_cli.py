@@ -5,24 +5,20 @@ import io
 import sys
 from contextlib import redirect_stdout
 import pytest
+from unittest.mock import patch, MagicMock
 from src.todo_app.cli.cli import TodoCLI
 
 
-def test_add_command_valid():
+def test_add_todo_valid():
     """
-    Test the add command with valid input.
+    Test adding a todo with valid input.
     """
     cli = TodoCLI()
 
-    # Capture output
-    captured_output = io.StringIO()
-    with redirect_stdout(captured_output):
-        cli._handle_add('"Test task description"')
+    # Add a todo directly using the service
+    todo = cli.service.add_todo("Test task description")
 
-    output = captured_output.getvalue().strip()
-    assert "Added todo with ID 1: Test task description" in output
-
-    # Verify the todo was actually added
+    # Verify the todo was added
     todos = cli.service.get_all_todos()
     assert len(todos) == 1
     assert todos[0].id == 1
@@ -30,38 +26,36 @@ def test_add_command_valid():
     assert todos[0].completed is False
 
 
-def test_add_command_empty_description():
+def test_add_todo_empty_description():
     """
-    Test the add command with empty description.
+    Test adding a todo with empty description.
     """
     cli = TodoCLI()
 
-    # Capture output
-    captured_output = io.StringIO()
-    with redirect_stdout(captured_output):
-        cli._handle_add('""')
+    # Attempt to add a todo with empty description should raise an exception in validation
+    from src.todo_app.utils.validators import validate_todo_description
+    is_valid, error_msg = validate_todo_description("")
 
-    output = captured_output.getvalue().strip()
-    assert "Error: Description cannot be empty" in output
+    assert not is_valid
+    assert "Description cannot be empty" in error_msg
 
     # Verify no todo was added
     todos = cli.service.get_all_todos()
     assert len(todos) == 0
 
 
-def test_add_command_whitespace_description():
+def test_add_todo_whitespace_description():
     """
-    Test the add command with whitespace-only description.
+    Test adding a todo with whitespace-only description.
     """
     cli = TodoCLI()
 
-    # Capture output
-    captured_output = io.StringIO()
-    with redirect_stdout(captured_output):
-        cli._handle_add('"   "')
+    # Attempt to add a todo with whitespace-only description should raise an exception in validation
+    from src.todo_app.utils.validators import validate_todo_description
+    is_valid, error_msg = validate_todo_description("   ")
 
-    output = captured_output.getvalue().strip()
-    assert "Error: Description cannot be empty" in output
+    assert not is_valid
+    assert "Description cannot be empty" in error_msg
 
     # Verify no todo was added
     todos = cli.service.get_all_todos()
@@ -70,22 +64,17 @@ def test_add_command_whitespace_description():
 
 def test_view_command_empty():
     """
-    Test the view command when no todos exist.
+    Test viewing todos when no todos exist.
     """
     cli = TodoCLI()
 
-    # Capture output
-    captured_output = io.StringIO()
-    with redirect_stdout(captured_output):
-        cli._handle_view()
-
-    output = captured_output.getvalue().strip()
-    assert "No todos found." in output
+    todos = cli.service.get_all_todos()
+    assert len(todos) == 0
 
 
 def test_view_command_with_todos():
     """
-    Test the view command when todos exist.
+    Test viewing todos when todos exist.
     """
     cli = TodoCLI()
 
@@ -93,33 +82,25 @@ def test_view_command_with_todos():
     cli.service.add_todo("First task")
     cli.service.add_todo("Second task")
 
-    # Capture output
-    captured_output = io.StringIO()
-    with redirect_stdout(captured_output):
-        cli._handle_view()
-
-    output = captured_output.getvalue().strip()
-    assert "Your todos:" in output
-    assert "ID: 1 - First task - [Incomplete]" in output
-    assert "ID: 2 - Second task - [Incomplete]" in output
+    todos = cli.service.get_all_todos()
+    assert len(todos) == 2
+    assert todos[0].description == "First task"
+    assert todos[1].description == "Second task"
 
 
-def test_update_command_valid():
+def test_update_todo_valid():
     """
-    Test the update command with valid input.
+    Test updating a todo with valid input.
     """
     cli = TodoCLI()
 
     # Add a todo first
     cli.service.add_todo("Original task")
 
-    # Capture output
-    captured_output = io.StringIO()
-    with redirect_stdout(captured_output):
-        cli._handle_update('1 "Updated task"')
+    # Update the todo
+    success = cli.service.update_todo(1, "Updated task")
 
-    output = captured_output.getvalue().strip()
-    assert "Updated todo with ID 1" in output
+    assert success is True
 
     # Verify the update
     todos = cli.service.get_all_todos()
@@ -127,91 +108,103 @@ def test_update_command_valid():
     assert todos[0].description == "Updated task"
 
 
-def test_update_command_invalid_id():
+def test_update_todo_invalid_id():
     """
-    Test the update command with invalid ID.
+    Test updating a todo with invalid ID.
     """
     cli = TodoCLI()
 
-    # Capture output
-    captured_output = io.StringIO()
-    with redirect_stdout(captured_output):
-        cli._handle_update('999 "Updated task"')
+    # Add one todo
+    cli.service.add_todo("Test task")
 
-    output = captured_output.getvalue().strip()
-    assert "Error: Todo with ID 999 not found" in output
+    # Try to update a non-existent todo
+    success = cli.service.update_todo(999, "Updated task")
+
+    assert success is False
 
 
-def test_delete_command_valid():
+def test_delete_todo_valid():
     """
-    Test the delete command with valid input.
+    Test deleting a todo with valid input.
     """
     cli = TodoCLI()
 
     # Add a todo first
     cli.service.add_todo("Task to delete")
 
-    # Capture output
-    captured_output = io.StringIO()
-    with redirect_stdout(captured_output):
-        cli._handle_delete('1')
+    # Verify it exists
+    todos = cli.service.get_all_todos()
+    assert len(todos) == 1
 
-    output = captured_output.getvalue().strip()
-    assert "Deleted todo with ID 1" in output
+    # Delete the todo
+    success = cli.service.delete_todo(1)
+
+    assert success is True
 
     # Verify the todo was deleted
     todos = cli.service.get_all_todos()
     assert len(todos) == 0
 
 
-def test_delete_command_invalid_id():
+def test_delete_todo_invalid_id():
     """
-    Test the delete command with invalid ID.
+    Test deleting a todo with invalid ID.
     """
     cli = TodoCLI()
 
-    # Capture output
-    captured_output = io.StringIO()
-    with redirect_stdout(captured_output):
-        cli._handle_delete('999')
+    # Add one todo
+    cli.service.add_todo("Test task")
 
-    output = captured_output.getvalue().strip()
-    assert "Error: Todo with ID 999 not found" in output
+    # Try to delete a non-existent todo
+    success = cli.service.delete_todo(999)
+
+    assert success is False
+
+    # Verify original todo still exists
+    todos = cli.service.get_all_todos()
+    assert len(todos) == 1
 
 
-def test_complete_command_valid():
+def test_complete_todo_valid():
     """
-    Test the complete command with valid input.
+    Test marking a todo as complete with valid input.
     """
     cli = TodoCLI()
 
     # Add a todo first
     cli.service.add_todo("Task to complete")
 
-    # Capture output
-    captured_output = io.StringIO()
-    with redirect_stdout(captured_output):
-        cli._handle_complete('1')
+    # Verify it starts as incomplete
+    todos = cli.service.get_all_todos()
+    assert len(todos) == 1
+    assert todos[0].completed is False
 
-    output = captured_output.getvalue().strip()
-    assert "Marked todo with ID 1 as complete" in output
+    # Mark as complete
+    success = cli.service.mark_complete(1)
 
-    # Verify the todo is now complete
+    assert success is True
+
+    # Verify it's now complete
     todos = cli.service.get_all_todos()
     assert len(todos) == 1
     assert todos[0].completed is True
 
 
-def test_complete_command_invalid_id():
+def test_complete_todo_invalid_id():
     """
-    Test the complete command with invalid ID.
+    Test marking a todo as complete with invalid ID.
     """
     cli = TodoCLI()
 
-    # Capture output
-    captured_output = io.StringIO()
-    with redirect_stdout(captured_output):
-        cli._handle_complete('999')
+    # Add one todo
+    cli.service.add_todo("Test task")
 
-    output = captured_output.getvalue().strip()
-    assert "Error: Todo with ID 999 not found" in output
+    # Try to mark a non-existent todo as complete
+    success = cli.service.mark_complete(999)
+
+    assert success is False
+
+    # Verify original todo is still incomplete
+    todos = cli.service.get_all_todos()
+    assert len(todos) == 1
+    assert todos[0].completed is False

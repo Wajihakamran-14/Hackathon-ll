@@ -1,5 +1,5 @@
 """
-Command-line interface for the Todo application.
+Menu-based interface for the Todo application.
 """
 import sys
 import os
@@ -14,7 +14,7 @@ from todo_app.utils.validators import validate_todo_description, validate_todo_i
 
 class TodoCLI:
     """
-    Command-line interface for interacting with the Todo application.
+    Menu-based interface for interacting with the Todo application.
     """
     def __init__(self):
         """
@@ -24,36 +24,30 @@ class TodoCLI:
 
     def run(self):
         """
-        Run the main CLI loop, processing user commands until quit.
+        Run the main menu loop, processing user choices until quit.
         """
-        print("Welcome to the Todo App!")
-        print("Type 'help' for available commands or 'quit' to exit.")
-
         while True:
+            self._show_menu()
             try:
-                # Get user input
-                user_input = input("\n> ").strip()
+                choice = input("\nEnter your choice (1-7): ").strip()
 
-                # Parse the command
-                if not user_input:
-                    continue
-
-                # Split the command and arguments
-                parts = user_input.split(maxsplit=1)
-                command = parts[0].lower()
-
-                # Get the rest of the input as arguments
-                args = parts[1] if len(parts) > 1 else ""
-
-                # Process the command
-                if command == "quit":
+                if choice == "1":
+                    self._add_todo()
+                elif choice == "2":
+                    self._view_todos()
+                elif choice == "3":
+                    self._update_todo()
+                elif choice == "4":
+                    self._delete_todo()
+                elif choice == "5":
+                    self._complete_todo()
+                elif choice == "6":
+                    self._show_help_menu()
+                elif choice == "7":
                     print("Goodbye!")
                     break
-                elif command == "help":
-                    self._show_help()
                 else:
-                    # Process other commands
-                    self._process_command(command, args)
+                    print("Invalid choice. Please select a number between 1-7.")
 
             except KeyboardInterrupt:
                 print("\nGoodbye!")
@@ -62,28 +56,27 @@ class TodoCLI:
                 print("\nGoodbye!")
                 break
 
-    def _process_command(self, command: str, args: str):
+    def _show_menu(self):
         """
-        Process a specific command with its arguments.
+        Display the main menu options.
         """
-        if command == "add":
-            self._handle_add(args)
-        elif command == "view":
-            self._handle_view()
-        elif command == "update":
-            self._handle_update(args)
-        elif command == "delete":
-            self._handle_delete(args)
-        elif command == "complete":
-            self._handle_complete(args)
-        else:
-            print(f"Unknown command: {command}. Type 'help' for available commands.")
+        print("\n" + "="*50)
+        print("           TODO APPLICATION")
+        print("="*50)
+        print("1. Add Todo")
+        print("2. View All Todos")
+        print("3. Update Todo")
+        print("4. Delete Todo")
+        print("5. Mark Todo as Complete")
+        print("6. Help")
+        print("7. Quit")
+        print("="*50)
 
-    def _handle_add(self, args: str):
+    def _add_todo(self):
         """
-        Handle the 'add' command to add a new todo.
+        Handle adding a new todo.
         """
-        description = args.strip().strip('"\'')
+        description = input("Enter todo description: ").strip()
 
         # Validate the description
         is_valid, error_msg = validate_todo_description(description)
@@ -93,11 +86,11 @@ class TodoCLI:
 
         # Add the todo
         new_todo = self.service.add_todo(description)
-        print(f"Added todo with ID {new_todo.id}: {new_todo.description}")
+        print(f"[OK] Added todo with ID {new_todo.id}: {new_todo.description}")
 
-    def _handle_view(self):
+    def _view_todos(self):
         """
-        Handle the 'view' command to display all todos.
+        Handle viewing all todos.
         """
         todos = self.service.get_all_todos()
 
@@ -105,23 +98,19 @@ class TodoCLI:
             print("No todos found.")
             return
 
-        print("Your todos:")
+        print("\nYour todos:")
+        print("-" * 60)
         for todo in todos:
-            status = "Complete" if todo.completed else "Incomplete"
-            print(f"ID: {todo.id} - {todo.description} - [{status}]")
+            status = "[COMPLETED]" if todo.completed else "[INCOMPLETE]"
+            print(f"ID: {todo.id} | {todo.description} | [{status}]")
+        print("-" * 60)
 
-    def _handle_update(self, args: str):
+    def _update_todo(self):
         """
-        Handle the 'update' command to update a todo's description.
+        Handle updating a todo's description.
         """
-        # Parse ID and new description
-        parts = args.split(maxsplit=1)
-        if len(parts) != 2:
-            print("Usage: update <id> \"new description\"")
-            return
-
         try:
-            todo_id = int(parts[0])
+            todo_id = int(input("Enter todo ID to update: ").strip())
         except ValueError:
             print("Error: ID must be a number")
             return
@@ -132,7 +121,14 @@ class TodoCLI:
             print(f"Error: {error_msg}")
             return
 
-        new_description = parts[1].strip().strip('"\'')
+        # Check if todo exists
+        existing_todo = self.service.get_todo_by_id(todo_id)
+        if not existing_todo:
+            print(f"Error: Todo with ID {todo_id} not found")
+            return
+
+        print(f"Current description: {existing_todo.description}")
+        new_description = input("Enter new description: ").strip()
 
         # Validate the new description
         is_valid, error_msg = validate_todo_description(new_description)
@@ -142,20 +138,16 @@ class TodoCLI:
 
         # Update the todo
         if self.service.update_todo(todo_id, new_description):
-            print(f"Updated todo with ID {todo_id}")
+            print(f"[OK] Updated todo with ID {todo_id}")
         else:
             print(f"Error: Todo with ID {todo_id} not found")
 
-    def _handle_delete(self, args: str):
+    def _delete_todo(self):
         """
-        Handle the 'delete' command to delete a todo.
+        Handle deleting a todo.
         """
-        if not args:
-            print("Usage: delete <id>")
-            return
-
         try:
-            todo_id = int(args.strip())
+            todo_id = int(input("Enter todo ID to delete: ").strip())
         except ValueError:
             print("Error: ID must be a number")
             return
@@ -168,20 +160,16 @@ class TodoCLI:
 
         # Delete the todo
         if self.service.delete_todo(todo_id):
-            print(f"Deleted todo with ID {todo_id}")
+            print(f"[OK] Deleted todo with ID {todo_id}")
         else:
             print(f"Error: Todo with ID {todo_id} not found")
 
-    def _handle_complete(self, args: str):
+    def _complete_todo(self):
         """
-        Handle the 'complete' command to mark a todo as complete.
+        Handle marking a todo as complete.
         """
-        if not args:
-            print("Usage: complete <id>")
-            return
-
         try:
-            todo_id = int(args.strip())
+            todo_id = int(input("Enter todo ID to mark complete: ").strip())
         except ValueError:
             print("Error: ID must be a number")
             return
@@ -194,23 +182,25 @@ class TodoCLI:
 
         # Mark as complete
         if self.service.mark_complete(todo_id):
-            print(f"Marked todo with ID {todo_id} as complete")
+            print(f"[OK] Marked todo with ID {todo_id} as complete")
         else:
             print(f"Error: Todo with ID {todo_id} not found")
 
-    def _show_help(self):
+    def _show_help_menu(self):
         """
-        Display help information for available commands.
+        Display help information for the menu options.
         """
-        print("\nAvailable commands:")
-        print("  add \"description\"     - Add a new todo with the given description")
-        print("  view                - Display all todos with their ID, description, and status")
-        print("  update <id> \"desc\"  - Update the description of a todo")
-        print("  delete <id>         - Delete a todo by its ID")
-        print("  complete <id>       - Mark a todo as complete")
-        print("  help                - Show this help message")
-        print("  quit                - Exit the application")
-
+        print("\n" + "="*50)
+        print("                    HELP")
+        print("="*50)
+        print("1. Add Todo - Create a new todo item")
+        print("2. View All Todos - Display all your todos")
+        print("3. Update Todo - Change the description of an existing todo")
+        print("4. Delete Todo - Remove a todo from your list")
+        print("5. Mark Todo as Complete - Change todo status to complete")
+        print("6. Help - Show this help message")
+        print("7. Quit - Exit the application")
+        print("="*50)
 
 def main():
     """

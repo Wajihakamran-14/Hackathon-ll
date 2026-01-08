@@ -28,12 +28,12 @@ To run the application:
 python src/todo_app/cli/cli.py
 ```
 
-The application provides a command-line interface with the following commands:
+The application provides a menu-based interface with the following options:
 
-- `add "description"` - Add a new todo with the given description
-- `view` - Display all todos with their ID, description, and status
-- `update <id> "new description"` - Update the description of a todo
-- `delete <id>` - Delete a todo by its ID
-- `complete <id>` - Mark a todo as complete
-- `help` - Show available commands
-- `quit` - Exit the application
+1. Add Todo - Create a new todo item
+2. View All Todos - Display all your todos
+3. Update Todo - Change the description of an existing todo
+4. Delete Todo - Remove a todo from your list
+5. Mark Todo as Complete - Change todo status to complete
+6. Help - Show help information
+7. Quit - Exit the application
